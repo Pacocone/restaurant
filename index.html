@@ -15,7 +15,6 @@
     }
     h1 {
       text-align: center;
-      margin-bottom: 1rem;
     }
     .form {
       background: #1e1e1e;
@@ -23,7 +22,7 @@
       border-radius: 12px;
       margin-bottom: 2rem;
     }
-    .form input, .form textarea {
+    input, textarea {
       width: 100%;
       padding: 0.6rem;
       margin-bottom: 0.8rem;
@@ -37,6 +36,7 @@
       color: black;
       border: none;
       padding: 0.6rem 1.2rem;
+      margin-right: 0.5rem;
       border-radius: 8px;
       cursor: pointer;
     }
@@ -53,6 +53,11 @@
       background: #2a2a2a;
       border-radius: 12px;
     }
+    img.ticket {
+      max-width: 100%;
+      margin-top: 0.5rem;
+      border-radius: 8px;
+    }
   </style>
 </head>
 <body>
@@ -64,19 +69,23 @@
     <input type="number" id="total" placeholder="Precio total (€)" />
     <input type="text" id="precioMedio" placeholder="Precio medio por persona (€)" readonly />
     <textarea id="observaciones" placeholder="Observaciones (opcional)"></textarea>
+    <input type="file" id="ticket" accept="image/*" />
     <button onclick="guardarEntrada()">Guardar</button>
+    <button onclick="cancelarEdicion()" id="cancelar" style="display:none">Cancelar</button>
   </div>
 
   <div id="listaEntradas"></div>
   <div class="summary" id="resumen"></div>
 
   <script>
+    let editIndex = -1;
     const restauranteInput = document.getElementById("restaurante");
     const fechaInput = document.getElementById("fecha");
     const comensalesInput = document.getElementById("comensales");
     const totalInput = document.getElementById("total");
     const precioMedioInput = document.getElementById("precioMedio");
     const observacionesInput = document.getElementById("observaciones");
+    const ticket = document.getElementById("ticket");
 
     totalInput.addEventListener("input", calcularPrecioMedio);
     comensalesInput.addEventListener("input", calcularPrecioMedio);
@@ -89,26 +98,46 @@
     }
 
     function guardarEntrada() {
-      const entrada = {
-        restaurante: restauranteInput.value,
-        fecha: fechaInput.value,
-        comensales: parseInt(comensalesInput.value),
-        total: parseFloat(totalInput.value),
-        medio: parseFloat(precioMedioInput.value),
-        observaciones: observacionesInput.value
+      const reader = new FileReader();
+      const file = ticket.files[0];
+
+      reader.onloadend = function () {
+        const entrada = {
+          restaurante: restauranteInput.value,
+          fecha: fechaInput.value,
+          comensales: parseInt(comensalesInput.value),
+          total: parseFloat(totalInput.value),
+          medio: parseFloat(precioMedioInput.value),
+          observaciones: observacionesInput.value,
+          imagen: reader.result || null
+        };
+
+        if (!entrada.restaurante || !entrada.fecha || !entrada.comensales || !entrada.total) {
+          alert("Por favor, completa todos los campos obligatorios.");
+          return;
+        }
+
+        const entradas = JSON.parse(localStorage.getItem("entradas") || "[]");
+
+        if (editIndex >= 0) {
+          entradas[editIndex] = entrada;
+          editIndex = -1;
+          document.getElementById("cancelar").style.display = "none";
+        } else {
+          entradas.push(entrada);
+        }
+
+        localStorage.setItem("entradas", JSON.stringify(entradas));
+        limpiarFormulario();
+        mostrarEntradas();
+        mostrarResumen();
       };
 
-      if (!entrada.restaurante || !entrada.fecha || !entrada.comensales || !entrada.total) {
-        alert("Por favor, completa todos los campos obligatorios.");
-        return;
+      if (file) {
+        reader.readAsDataURL(file);
+      } else {
+        reader.onloadend();
       }
-
-      const entradas = JSON.parse(localStorage.getItem("entradas") || "[]");
-      entradas.push(entrada);
-      localStorage.setItem("entradas", JSON.stringify(entradas));
-      limpiarFormulario();
-      mostrarEntradas();
-      mostrarResumen();
     }
 
     function limpiarFormulario() {
@@ -118,22 +147,59 @@
       totalInput.value = "";
       precioMedioInput.value = "";
       observacionesInput.value = "";
+      ticket.value = "";
+    }
+
+    function cancelarEdicion() {
+      editIndex = -1;
+      limpiarFormulario();
+      document.getElementById("cancelar").style.display = "none";
     }
 
     function mostrarEntradas() {
       const contenedor = document.getElementById("listaEntradas");
       contenedor.innerHTML = "";
       const entradas = JSON.parse(localStorage.getItem("entradas") || "[]");
-      entradas.forEach((e) => {
+
+      entradas.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+      entradas.forEach((e, i) => {
         const div = document.createElement("div");
         div.className = "entry";
         div.innerHTML = `
           <strong>${e.restaurante}</strong> - ${e.fecha}<br/>
           ${e.comensales} comensales · Total: €${e.total} · Medio: €${e.medio}<br/>
-          <em>${e.observaciones || ""}</em>
+          <em>${e.observaciones || ""}</em><br/>
+          ${e.imagen ? `<img src="${e.imagen}" class="ticket"/>` : ""}
+          <br/>
+          <button onclick="editarEntrada(${i})">✏️ Editar</button>
+          <button onclick="borrarEntrada(${i})">🗑️ Borrar</button>
         `;
         contenedor.appendChild(div);
       });
+    }
+
+    function editarEntrada(i) {
+      const entradas = JSON.parse(localStorage.getItem("entradas") || "[]");
+      const e = entradas[i];
+      restauranteInput.value = e.restaurante;
+      fechaInput.value = e.fecha;
+      comensalesInput.value = e.comensales;
+      totalInput.value = e.total;
+      precioMedioInput.value = e.medio;
+      observacionesInput.value = e.observaciones;
+      editIndex = i;
+      document.getElementById("cancelar").style.display = "inline-block";
+    }
+
+    function borrarEntrada(i) {
+      if (confirm("¿Estás seguro de borrar esta entrada?")) {
+        const entradas = JSON.parse(localStorage.getItem("entradas") || "[]");
+        entradas.splice(i, 1);
+        localStorage.setItem("entradas", JSON.stringify(entradas));
+        mostrarEntradas();
+        mostrarResumen();
+      }
     }
 
     function mostrarResumen() {
