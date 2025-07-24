@@ -5,13 +5,170 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Visitas a Restaurantes</title>
   <link rel="manifest" href="manifest.json" />
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background-color: #121212;
+      color: #ffffff;
+      padding: 1rem;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+    .form {
+      background: #1e1e1e;
+      padding: 1rem;
+      border-radius: 12px;
+      margin-bottom: 2rem;
+    }
+    .form input, .form textarea {
+      width: 100%;
+      padding: 0.6rem;
+      margin-bottom: 0.8rem;
+      border: none;
+      border-radius: 8px;
+      background: #2c2c2c;
+      color: white;
+    }
+    button {
+      background-color: #03dac6;
+      color: black;
+      border: none;
+      padding: 0.6rem 1.2rem;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .entry {
+      background: #1e1e1e;
+      border-left: 4px solid #03dac6;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      border-radius: 8px;
+    }
+    .summary {
+      margin-top: 2rem;
+      padding: 1rem;
+      background: #2a2a2a;
+      border-radius: 12px;
+    }
+  </style>
 </head>
 <body>
-  <h1>App funcionando</h1>
+  <h1>Registro de Restaurantes</h1>
+  <div class="form">
+    <input type="text" id="restaurante" placeholder="Nombre del restaurante" required />
+    <input type="date" id="fecha" />
+    <input type="number" id="comensales" placeholder="Número de comensales" />
+    <input type="number" id="total" placeholder="Precio total (€)" />
+    <input type="text" id="precioMedio" placeholder="Precio medio por persona (€)" readonly />
+    <textarea id="observaciones" placeholder="Observaciones (opcional)"></textarea>
+    <button onclick="guardarEntrada()">Guardar</button>
+  </div>
+
+  <div id="listaEntradas"></div>
+  <div class="summary" id="resumen"></div>
+
   <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('service-worker.js');
+    const restauranteInput = document.getElementById("restaurante");
+    const fechaInput = document.getElementById("fecha");
+    const comensalesInput = document.getElementById("comensales");
+    const totalInput = document.getElementById("total");
+    const precioMedioInput = document.getElementById("precioMedio");
+    const observacionesInput = document.getElementById("observaciones");
+
+    totalInput.addEventListener("input", calcularPrecioMedio);
+    comensalesInput.addEventListener("input", calcularPrecioMedio);
+
+    function calcularPrecioMedio() {
+      const total = parseFloat(totalInput.value) || 0;
+      const comensales = parseInt(comensalesInput.value) || 1;
+      const medio = total / comensales;
+      precioMedioInput.value = medio.toFixed(2);
     }
+
+    function guardarEntrada() {
+      const entrada = {
+        restaurante: restauranteInput.value,
+        fecha: fechaInput.value,
+        comensales: parseInt(comensalesInput.value),
+        total: parseFloat(totalInput.value),
+        medio: parseFloat(precioMedioInput.value),
+        observaciones: observacionesInput.value
+      };
+
+      if (!entrada.restaurante || !entrada.fecha || !entrada.comensales || !entrada.total) {
+        alert("Por favor, completa todos los campos obligatorios.");
+        return;
+      }
+
+      const entradas = JSON.parse(localStorage.getItem("entradas") || "[]");
+      entradas.push(entrada);
+      localStorage.setItem("entradas", JSON.stringify(entradas));
+      limpiarFormulario();
+      mostrarEntradas();
+      mostrarResumen();
+    }
+
+    function limpiarFormulario() {
+      restauranteInput.value = "";
+      fechaInput.value = "";
+      comensalesInput.value = "";
+      totalInput.value = "";
+      precioMedioInput.value = "";
+      observacionesInput.value = "";
+    }
+
+    function mostrarEntradas() {
+      const contenedor = document.getElementById("listaEntradas");
+      contenedor.innerHTML = "";
+      const entradas = JSON.parse(localStorage.getItem("entradas") || "[]");
+      entradas.forEach((e) => {
+        const div = document.createElement("div");
+        div.className = "entry";
+        div.innerHTML = `
+          <strong>${e.restaurante}</strong> - ${e.fecha}<br/>
+          ${e.comensales} comensales · Total: €${e.total} · Medio: €${e.medio}<br/>
+          <em>${e.observaciones || ""}</em>
+        `;
+        contenedor.appendChild(div);
+      });
+    }
+
+    function mostrarResumen() {
+      const resumen = {};
+      const entradas = JSON.parse(localStorage.getItem("entradas") || "[]");
+      entradas.forEach(e => {
+        const año = new Date(e.fecha).getFullYear();
+        const clave = `${e.restaurante}-${año}`;
+        if (!resumen[clave]) {
+          resumen[clave] = { total: 0, visitas: 0, comensales: 0 };
+        }
+        resumen[clave].total += e.total;
+        resumen[clave].comensales += e.comensales;
+        resumen[clave].visitas += 1;
+      });
+
+      const resumenDiv = document.getElementById("resumen");
+      resumenDiv.innerHTML = "<h3>Resumen por restaurante y año:</h3>";
+      for (const [clave, datos] of Object.entries(resumen)) {
+        const [nombre, año] = clave.split("-");
+        resumenDiv.innerHTML += `
+          <p><strong>${nombre} (${año})</strong>: 
+          ${datos.visitas} visitas, €${datos.total.toFixed(2)} gastados, 
+          ${datos.comensales} comensales</p>
+        `;
+      }
+    }
+
+    window.addEventListener("load", () => {
+      mostrarEntradas();
+      mostrarResumen();
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('service-worker.js');
+      }
+    });
   </script>
 </body>
 </html>
