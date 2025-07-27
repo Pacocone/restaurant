@@ -3,172 +3,203 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Visitas a Restaurantes</title>
+  <title>Registro de Restaurantes</title>
   <link rel="manifest" href="manifest.json" />
   <style>
     body {
-      margin: 0;
       font-family: sans-serif;
-      background-color: #121212;
-      color: #ffffff;
+      background: #121212;
+      color: white;
       padding: 1rem;
+      margin: 0;
     }
     h1 {
       text-align: center;
-      margin-bottom: 1rem;
+      font-size: 2rem;
+      color: #03dac6;
     }
-    .form {
+    .form, .entry, .summary {
       background: #1e1e1e;
+      border-radius: 10px;
       padding: 1rem;
-      border-radius: 12px;
-      margin-bottom: 2rem;
+      margin: 1rem 0;
     }
-    .form input, .form textarea {
+    input, textarea, select {
       width: 100%;
-      padding: 0.6rem;
-      margin-bottom: 0.8rem;
-      border: none;
+      margin: 0.5rem 0;
+      padding: 0.5rem;
       border-radius: 8px;
+      border: none;
       background: #2c2c2c;
       color: white;
     }
     button {
-      background-color: #03dac6;
-      color: black;
+      background: #03dac6;
       border: none;
-      padding: 0.6rem 1.2rem;
+      padding: 0.5rem 1rem;
       border-radius: 8px;
       cursor: pointer;
+      margin-right: 0.5rem;
     }
-    .entry {
-      background: #1e1e1e;
-      border-left: 4px solid #03dac6;
-      padding: 1rem;
-      margin-bottom: 1rem;
-      border-radius: 8px;
+    img {
+      max-width: 100%;
+      margin-top: 0.5rem;
+      border-radius: 6px;
     }
-    .summary {
-      margin-top: 2rem;
-      padding: 1rem;
-      background: #2a2a2a;
-      border-radius: 12px;
+    a {
+      color: #03dac6;
+      text-decoration: none;
     }
   </style>
 </head>
 <body>
   <h1>Registro de Restaurantes</h1>
   <div class="form">
-    <input type="text" id="restaurante" placeholder="Nombre del restaurante" required />
+    <input type="text" id="restaurante" placeholder="Nombre del restaurante" />
     <input type="date" id="fecha" />
-    <input type="number" id="comensales" placeholder="Número de comensales" />
+    <input type="number" id="comensales" placeholder="N.º de comensales" />
     <input type="number" id="total" placeholder="Precio total (€)" />
-    <input type="text" id="precioMedio" placeholder="Precio medio por persona (€)" readonly />
-    <textarea id="observaciones" placeholder="Observaciones (opcional)"></textarea>
-    <button onclick="guardarEntrada()">Guardar</button>
+    <input type="text" id="precioMedio" placeholder="Precio medio por persona" readonly />
+    <textarea id="observaciones" placeholder="Observaciones"></textarea>
+    <label>Valoración (0–5):</label>
+    <select id="valoracion">
+      <option value="0">0 ⭐</option>
+      <option value="1">1 ⭐</option>
+      <option value="2">2 ⭐</option>
+      <option value="3">3 ⭐</option>
+      <option value="4">4 ⭐</option>
+      <option value="5">5 ⭐</option>
+    </select>
+    <input type="file" id="ticket" accept="image/*" />
+    <button onclick="guardar()">Guardar</button>
+    <button id="cancelar" onclick="cancelarEdicion()" style="display:none;">Cancelar</button>
   </div>
 
   <div id="listaEntradas"></div>
   <div class="summary" id="resumen"></div>
 
   <script>
-    const restauranteInput = document.getElementById("restaurante");
-    const fechaInput = document.getElementById("fecha");
-    const comensalesInput = document.getElementById("comensales");
-    const totalInput = document.getElementById("total");
-    const precioMedioInput = document.getElementById("precioMedio");
-    const observacionesInput = document.getElementById("observaciones");
-
-    totalInput.addEventListener("input", calcularPrecioMedio);
-    comensalesInput.addEventListener("input", calcularPrecioMedio);
+    const entradas = JSON.parse(localStorage.getItem("entradas") || "[]");
+    let editando = -1;
 
     function calcularPrecioMedio() {
-      const total = parseFloat(totalInput.value) || 0;
-      const comensales = parseInt(comensalesInput.value) || 1;
-      const medio = total / comensales;
-      precioMedioInput.value = medio.toFixed(2);
+      const total = parseFloat(document.getElementById("total").value) || 0;
+      const comensales = parseInt(document.getElementById("comensales").value) || 1;
+      document.getElementById("precioMedio").value = (total / comensales).toFixed(2);
     }
+    document.getElementById("total").addEventListener("input", calcularPrecioMedio);
+    document.getElementById("comensales").addEventListener("input", calcularPrecioMedio);
 
-    function guardarEntrada() {
-      const entrada = {
-        restaurante: restauranteInput.value,
-        fecha: fechaInput.value,
-        comensales: parseInt(comensalesInput.value),
-        total: parseFloat(totalInput.value),
-        medio: parseFloat(precioMedioInput.value),
-        observaciones: observacionesInput.value
+    function guardar() {
+      const r = document.getElementById("restaurante").value;
+      const f = document.getElementById("fecha").value;
+      const c = parseInt(document.getElementById("comensales").value);
+      const t = parseFloat(document.getElementById("total").value);
+      const m = parseFloat(document.getElementById("precioMedio").value);
+      const o = document.getElementById("observaciones").value;
+      const v = parseInt(document.getElementById("valoracion").value);
+      const file = document.getElementById("ticket").files[0];
+      const reader = new FileReader();
+
+      reader.onloadend = function () {
+        const img = file ? reader.result : null;
+        const nueva = { restaurante: r, fecha: f, comensales: c, total: t, medio: m, observaciones: o, valoracion: v, imagen: img };
+        if (editando >= 0) {
+          entradas[editando] = nueva;
+          editando = -1;
+          document.getElementById("cancelar").style.display = "none";
+        } else {
+          entradas.push(nueva);
+        }
+        localStorage.setItem("entradas", JSON.stringify(entradas));
+        mostrar();
+        resumen();
+        limpiar();
       };
-
-      if (!entrada.restaurante || !entrada.fecha || !entrada.comensales || !entrada.total) {
-        alert("Por favor, completa todos los campos obligatorios.");
-        return;
-      }
-
-      const entradas = JSON.parse(localStorage.getItem("entradas") || "[]");
-      entradas.push(entrada);
-      localStorage.setItem("entradas", JSON.stringify(entradas));
-      limpiarFormulario();
-      mostrarEntradas();
-      mostrarResumen();
+      if (file) reader.readAsDataURL(file);
+      else reader.onloadend();
     }
 
-    function limpiarFormulario() {
-      restauranteInput.value = "";
-      fechaInput.value = "";
-      comensalesInput.value = "";
-      totalInput.value = "";
-      precioMedioInput.value = "";
-      observacionesInput.value = "";
-    }
-
-    function mostrarEntradas() {
-      const contenedor = document.getElementById("listaEntradas");
-      contenedor.innerHTML = "";
-      const entradas = JSON.parse(localStorage.getItem("entradas") || "[]");
-      entradas.forEach((e) => {
+    function mostrar() {
+      const cont = document.getElementById("listaEntradas");
+      cont.innerHTML = "";
+      entradas.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+      entradas.forEach((e, i) => {
         const div = document.createElement("div");
         div.className = "entry";
-        div.innerHTML = `
-          <strong>${e.restaurante}</strong> - ${e.fecha}<br/>
-          ${e.comensales} comensales · Total: €${e.total} · Medio: €${e.medio}<br/>
-          <em>${e.observaciones || ""}</em>
-        `;
-        contenedor.appendChild(div);
+        div.innerHTML = \`
+          <strong><a href="https://www.google.com/maps/search/?q=\${encodeURIComponent(e.restaurante)}" target="_blank">\${e.restaurante}</a></strong> - \${e.fecha}<br>
+          Comensales: \${e.comensales}, Total: €\${e.total}, Medio: €\${e.medio}<br>
+          ⭐ \${e.valoracion} / 5<br>
+          \${e.observaciones ? '<em>' + e.observaciones + '</em><br>' : ''}
+          \${e.imagen ? '<img src="' + e.imagen + '">' : ''}
+          <br>
+          <button onclick="editar(\${i})">Editar</button>
+          <button onclick="borrar(\${i})">Borrar</button>
+        \`;
+        cont.appendChild(div);
       });
     }
 
-    function mostrarResumen() {
-      const resumen = {};
-      const entradas = JSON.parse(localStorage.getItem("entradas") || "[]");
+    function resumen() {
+      const data = {};
       entradas.forEach(e => {
         const año = new Date(e.fecha).getFullYear();
-        const clave = `${e.restaurante}-${año}`;
-        if (!resumen[clave]) {
-          resumen[clave] = { total: 0, visitas: 0, comensales: 0 };
-        }
-        resumen[clave].total += e.total;
-        resumen[clave].comensales += e.comensales;
-        resumen[clave].visitas += 1;
+        const clave = e.restaurante + "-" + año;
+        if (!data[clave]) data[clave] = { visitas: 0, total: 0, comensales: 0, valoraciones: 0 };
+        data[clave].visitas++;
+        data[clave].total += e.total;
+        data[clave].comensales += e.comensales;
+        data[clave].valoraciones += e.valoracion;
       });
-
-      const resumenDiv = document.getElementById("resumen");
-      resumenDiv.innerHTML = "<h3>Resumen por restaurante y año:</h3>";
-      for (const [clave, datos] of Object.entries(resumen)) {
+      const div = document.getElementById("resumen");
+      div.innerHTML = "<h3>Resumen por restaurante y año</h3>";
+      for (const clave in data) {
         const [nombre, año] = clave.split("-");
-        resumenDiv.innerHTML += `
-          <p><strong>${nombre} (${año})</strong>: 
-          ${datos.visitas} visitas, €${datos.total.toFixed(2)} gastados, 
-          ${datos.comensales} comensales</p>
-        `;
+        const d = data[clave];
+        const media = (d.valoraciones / d.visitas).toFixed(2);
+        div.innerHTML += \`<p><strong>\${nombre} (\${año})</strong>: \${d.visitas} visitas, €\${d.total.toFixed(2)}, ⭐ \${media}</p>\`;
       }
     }
 
-    window.addEventListener("load", () => {
-      mostrarEntradas();
-      mostrarResumen();
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('service-worker.js');
+    function editar(i) {
+      const e = entradas[i];
+      document.getElementById("restaurante").value = e.restaurante;
+      document.getElementById("fecha").value = e.fecha;
+      document.getElementById("comensales").value = e.comensales;
+      document.getElementById("total").value = e.total;
+      document.getElementById("precioMedio").value = e.medio;
+      document.getElementById("observaciones").value = e.observaciones;
+      document.getElementById("valoracion").value = e.valoracion;
+      editando = i;
+      document.getElementById("cancelar").style.display = "inline-block";
+    }
+
+    function borrar(i) {
+      if (confirm("¿Borrar esta entrada?")) {
+        entradas.splice(i, 1);
+        localStorage.setItem("entradas", JSON.stringify(entradas));
+        mostrar();
+        resumen();
       }
-    });
+    }
+
+    function cancelarEdicion() {
+      editando = -1;
+      limpiar();
+      document.getElementById("cancelar").style.display = "none";
+    }
+
+    function limpiar() {
+      document.querySelectorAll("input, textarea, select").forEach(e => e.value = "");
+      document.getElementById("precioMedio").value = "";
+    }
+
+    mostrar();
+    resumen();
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js');
+    }
   </script>
 </body>
 </html>
