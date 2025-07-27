@@ -46,6 +46,10 @@
       margin-top: 0.5rem;
       border-radius: 6px;
     }
+    a {
+      color: #03dac6;
+      text-decoration: none;
+    }
   </style>
 </head>
 <body>
@@ -124,7 +128,7 @@
         const div = document.createElement("div");
         div.className = "entry";
         div.innerHTML = \`
-          <strong><a href="https://www.google.com/maps/search/?q=\${encodeURIComponent(e.restaurante)}" target="_blank" style="color:#03dac6">\${e.restaurante}</a></strong> - \${e.fecha}<br>
+          <strong><a href="https://www.google.com/maps/search/?q=\${encodeURIComponent(e.restaurante)}" target="_blank">\${e.restaurante}</a></strong> - \${e.fecha}<br>
           Comensales: \${e.comensales}, Total: €\${e.total}, Medio: €\${e.medio}<br>
           ⭐ \${e.valoracion} / 5<br>
           \${e.observaciones ? '<em>' + e.observaciones + '</em><br>' : ''}
@@ -188,6 +192,7 @@
 
     function limpiar() {
       document.querySelectorAll("input, textarea, select").forEach(e => e.value = "");
+      document.getElementById("precioMedio").value = "";
     }
 
     mostrar();
